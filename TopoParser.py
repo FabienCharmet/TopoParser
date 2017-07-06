@@ -2,9 +2,13 @@
 from pyparsing import *
 from shutil import copyfile
 import subprocess
+import sys, getopt
 
 keyword = ['Node','Link']
 varname = alphanums + '-_'
+list_node = []
+list_link = []
+list_time = []
 
 #####################
 ###     TYPES     ###
@@ -28,7 +32,6 @@ Reads = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Reads')("type") 
 
 Element = Node | Link | Time | Before | Data | User | DataIsAuthorized | Reads
 
-#print Node.parseString(anode)
 
 def replace_char(src,target,filename):
     lines = []
@@ -41,17 +44,83 @@ def replace_char(src,target,filename):
         for line in lines:
             outfile.write(line)
 
+def move_migration_algo():
+    temp_link = list_link
+    temp_time = list_time
+    temp_nodes = list_node
+    new_nodes = []
+    for n in temp_nodes:
+	new_n = "new_" + n
+	new_nodes.append(new_n)
+        for l in temp_link:
+            if(l[0]==n):
+		l[0]=new_n
+            if(l[1]==n):
+		l[1]=new_n
+    print "new nodes " + str(new_nodes)
+    print "new link " + str(temp_link)
+    return new_nodes,temp_link
+
+def iterative_migration_algo():
+    migrated_nodes = []
+    new_link = []
+    new_nodes = []
+    remaining_nodes = list_node
+    temp_link = list_link
+    temp_time = list_time
+    count = 1
+    count_node = 0
+    
+    while(len(remaining_nodes)>0):
+	x = remaining_nodes[0]
+	new_x = "new_" + x
+	new_nodes.append(new_x)
+	#print new_x
+	#print temp_link
+	for l in temp_link:
+	    if((x == l[0]) and (l[1] in remaining_nodes)):
+		#print "setlink " + new_x + " " + l[1]
+		new_link.append([new_x,l[1]])
+		print "removed link: " + str(l)
+		temp_link.remove(l)
+	    if((x == l[1]) and (l[0] in remaining_nodes)):
+		#print "setlink " + new_x + " " + l[0]
+		new_link.append([new_x,l[0]])
+		print "removed link: " + str(l)
+		temp_link.remove(l)
+	if(count > 1):
+	    for l in temp_link:
+		#print "the link is: " + str(l) + " the node is: " + str(x)
+	    	if((x == l[0]) and (l[1] in migrated_nodes)):
+		    #print "setlink " + new_x + " " + l[1]
+		    new_link.append([new_x,l[1]])
+		    print "removed link: " + str(l)
+		    temp_link.remove(l)
+	    	if((x == l[1]) and (l[0] in migrated_nodes)):
+		    #print "setlink " + new_x + " " + l[0]
+  		    new_link.append([new_x,l[0]])
+		    print "removed link: " + str(l)
+		    temp_link.remove(l)
+	    	#if((x ==  l[0]) and (l[1] in migrated_nodes)):
+		#    temp_link.remove(l)
+	    	#if((x ==  l[1]) and (l[0] in migrated_nodes)):
+		#    print "removed link: " + str(l)
+		#    temp_link.remove(l)
+	count+=1
+	migrated_nodes.append(new_x)
+	remaining_nodes.remove(x)
+    print new_link
+    print new_nodes
+    return new_nodes,new_link
+
 
 def parse(filename):
     replace_char('\n','',filename)
     replace_char(')',')\n',filename)
-    node_insert=""
     data_insert=""
     user_insert=""
-    link_insert=""
     time_insert=""
     before_insert=""
-    type_insert=""
     reads_insert=""
     dataisauthorized_insert=""
     reads_insert=""
@@ -62,7 +131,7 @@ def parse(filename):
 	   elt_type = s["type"]
 	   if elt_type == "Node":
 	       name = s["node_name"]
-	       node_insert += "(declare-constant '" + name + " :sort 'node)\n"
+	       list_node.append(name)
 	   if elt_type == "Data":
 	       name = s["data_name"]
 	       data_insert += "(declare-constant '" + name + " :sort 'data)\n"
@@ -74,14 +143,17 @@ def parse(filename):
 	       nend = s["dst_link"]
                tbegin = s["begin_time"]
 	       tend = s["end_time"]
-	       link_insert += "(assert (setlink0 " + nbegin + " " + nend + " (make-interval " + tbegin + " " + tend + ")) :name " + nbegin + "-linked-to-" + nend + "-during-"+ tbegin + "-" + tend + ")\n" 
+	       list_link.append([nbegin,nend,tbegin,tend])
 	   if elt_type == "Time":
       	       name = s["time_name"]
+	       list_time.append(name)
 	       time_insert += "(declare-constant '" + name + " :sort 'time-point :constructor t)\n"
+
 	   if elt_type == "Before":
 	       before_time = s["before_time"]
 	       after_time = s["after_time"]
 	       before_insert += "(before " + before_time + " " + after_time + ")\n"
+
 	   if elt_type == "Data-IsAuthorized":
                tbegin = s["before_time"]
 	       tend = s["after_time"]
@@ -96,6 +168,7 @@ def parse(filename):
 	          temp = "(not " + temp + ")"
 	       temp = "(assert " + temp + ")\n" 
 	       dataisauthorized_insert += temp
+
 	   if elt_type == "Reads":
 	       try:
 		   nots = s["Not"]
@@ -110,21 +183,14 @@ def parse(filename):
 	          temp = "(not " + temp + ")"
 	       temp = "(assert " + temp + ")\n" 
 	       reads_insert += temp
-           #print line
-#    with open(fname) as f:
-#        content = f.readlines()
-        # you may also want to remove whitespace characters like `\n` at the end of each line
- #       content = [x.strip() for x in content] 
+    return time_insert,data_insert,user_insert,dataisauthorized_insert,reads_insert,before_insert
 
-    #declaration_str=";;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n;;;     DECLARATIONS      ;;;\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+
+def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert,before_insert):
     constant_type = ["node", "data", "users"]
+    type_insert=""
     for x in constant_type:
-        type_insert+="(declare sort '" + x + ")\n"
-    #declaration_str += "(declare-snark-option time-point-sort-name 'time-point 'time-point)\n"
-    #declaration_str += "(declare-time-relations :intervals t :points t :dates t)\n\n"
-    #declaration_str += "(declare-function '$$cons 2 :new-name 'cons)"
-    #declaration_str += "(declare-function '$$list :any  :new-name 'list)\n"
-    #declaration_str += "(declare-constant '$$nil :alias 'nil :sort 'list)\n"
+        type_insert+="(declare-sort '" + x + ")\n"
     
     outfilename = "result.lisp"
     with open(outfilename, 'w') as outfile:
@@ -161,10 +227,43 @@ def parse(filename):
     	        else:
     		    outfile.write(x)
     
-    subprocess.call(["cp","result.lisp","/home/fabien/snark-20180808r022/result.lisp"])
+    #subprocess.call(["cp","result.lisp","/home/fabien/snark-20180808r022/result.lisp"])
 
-    print link_insert + node_insert + time_insert + before_insert + dataisauthorized_insert + reads_insert
+    #print link_insert + node_insert + time_insert + before_insert + dataisauthorized_insert + reads_insert
+
+    #print list_node + list_link
+
+    #move_migration_algo()    
+
+try:
+        opts, args = getopt.getopt(sys.argv[1:], "c:o:", ["conffile=", "outfile="])
+except getopt.GetoptError as err:
+        # print help information and exit:
+        print str(err)  # will print something like "option -a not recognized"
+        sys.exit(2)
+
+for opt, arg in opts:
+    if opt in ('c' , '--conffile'):
+	conffile = arg
+    if opt in ('o' , '--outfile'):
+	outfile = arg
+if (len(sys.argv)!=3):
+    print "Wrong number of argument"
+    exit()
+
+print str(sys.argv) + " length: " + str(len(sys.argv))
 
 
+time_insert,data_insert,user_insert,dataisauthorized_insert,reads_insert,before_insert = parse("topo.conf")
 
-parse("topo.conf")
+nodes,links =  move_migration_algo()
+node_insert=""
+link_insert=""
+
+for n in nodes:
+    node_insert += "(declare-constant '" + n + " :sort 'node)\n"
+
+for l in links:
+    link_insert += "(assert (setlink0 " + l[0] + " " + l[1] + " (make-interval " + l[2] + " " + l[3] + ")) :name " + l[0] + "-linked-to-" + l[1] + "-during-"+ l[2] + "-" + l[3]  + ")\n" 
+
+insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert, before_insert)
