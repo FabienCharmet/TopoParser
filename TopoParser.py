@@ -4,6 +4,7 @@ from shutil import copyfile
 import subprocess
 import sys, getopt
 import string
+from copy import deepcopy
 
 keyword = ['Node','Link']
 varname = alphanums + '-_'
@@ -59,25 +60,33 @@ def print_links(links):
 
 
 def move_migration_algo():
-    temp_link = list_link
-    temp_time = list_time
-    temp_nodes = list_node
+    new_time = []
+    new_link = []
+    temp_nodes = list_node[:]
     new_nodes = []
+    for l in list_link:
+	l[2]=time_token([0])
+	l[3]=time_token([1])
+    new_link = deepcopy(list_link)
     for n in temp_nodes:
 	new_n = "new_" + n
 	new_nodes.append(new_n)
-        for l in temp_link:
-            if(l[0]==n):
+        for l in new_link:
+            if(l[0]==n):	
 		l[0]=new_n
             if(l[1]==n):
 		l[1]=new_n
 	    l[2]="time-2"
 	    l[3]="time-3"
     #print "new nodes " str(new_nodes)
-    #print "new link " + str(temp_link)
+    #print "new link " + str(temp_link)i
+    new_time.append("time-0")
+    new_time.append("time-1")
+    new_time.append("time-2")
+    new_time.append("time-3")
     print_nodes(new_nodes)
-    print_links(temp_link)
-    return new_nodes,temp_link
+    print_links(new_link)
+    return new_nodes,new_link,new_time
 
 def time_token(time_vector):
     timeslot="time-"
@@ -87,83 +96,84 @@ def time_token(time_vector):
     timeslot="time-" + str(time_vector[0])
     return timeslot
 
-def iterative_migration_algo2():
-    migrated_nodes = []
-    new_link = []
-    new_nodes = []
-    old_nodes = []
-    remaining_nodes = list_node
-    temp_link = list_link
-    temp_time = list_time
-    count = 1
-    count_time = 1
-    
-    for l in temp_link:
-	l[2]=time_token([0])
-	l[3]=time_token([1])
-
-    while(len(remaining_nodes)>0):
-	x = remaining_nodes[0]
-	new_x = "new_" + x
-	new_nodes.append(new_x)
-	#print new_x
-	#print temp_link
-	#print "length: " + str(len(remaining_nodes))
-	for l in temp_link:
-	    if((x == l[0]) and (l[1] in remaining_nodes)):
-		#print "setlink " + new_x + " " + l[1]
-		new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
-		#print "removed link: " + str(l)
-		#temp_link.remove(l)
-	    if((x == l[1]) and (l[0] in remaining_nodes)):
-		#print "setlink " + new_x + " " + l[0]
-		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
-		#print "removed link: " + str(l)
-		#temp_link.remove(l)
-	if(count > 1):
-	    for l in temp_link:
-		#print "the link is: " + str(l) + " the node is: " + str(x)
-		#print "old nodes: " + str(old_nodes) + " the link is: " + str(l) + " the node is: " + str(x)
-	    	if((x == l[0]) and (l[1] in old_nodes)):
-		    #print "setlink " + new_x + " " + l[1]
-		    new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
-		    print "removed link: " + str(l)
-		    temp_link.remove(l)
-	    	if((x == l[1]) and (l[0] in old_nodes)):
-		    #print "setlink " + new_x + " " + l[0]
-  		    new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
-		    print "removed link: " + str(l)
-		    temp_link.remove(l)
-	    	#if((x ==  l[0]) and (l[1] in migrated_nodes)):
-		#    temp_link.remove(l)
-	    	#if((x ==  l[1]) and (l[0] in migrated_nodes)):
-		#    print "removed link: " + str(l)
-		#    temp_link.remove(l)
-	count+=1
-	#print "count = " + str(count)
-	migrated_nodes.append(new_x)
-	old_nodes.append(x)
-	remaining_nodes.remove(x)
-    #print "New links: " + str(new_link)
-    #print new_nodes
-    print_nodes(new_nodes)
-    print_links(new_link)
-    return new_nodes,new_link
+#def iterative_migration_algo2():
+#    migrated_nodes = []
+#    new_link = []
+#    new_nodes = []
+#    old_nodes = []
+#    remaining_nodes = list_node
+#    temp_link = list_link
+#    temp_time = list_time
+#    count = 1
+#    count_time = 1
+#    
+#    for l in temp_link:
+#	l[2]=time_token([0])
+#	l[3]=time_token([1])
+#
+#    while(len(remaining_nodes)>0):
+#	x = remaining_nodes[0]
+#	new_x = "new_" + x
+#	new_nodes.append(new_x)
+#	#print new_x
+#	#print temp_link
+#	#print "length: " + str(len(remaining_nodes))
+#	for l in temp_link:
+#	    if((x == l[0]) and (l[1] in remaining_nodes)):
+#		#print "setlink " + new_x + " " + l[1]
+#		new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
+#		#print "removed link: " + str(l)
+#		#temp_link.remove(l)
+#	    if((x == l[1]) and (l[0] in remaining_nodes)):
+#		#print "setlink " + new_x + " " + l[0]
+#		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
+#		#print "removed link: " + str(l)
+#		#temp_link.remove(l)
+#	if(count > 1):
+#	    for l in temp_link:
+#		#print "the link is: " + str(l) + " the node is: " + str(x)
+#		#print "old nodes: " + str(old_nodes) + " the link is: " + str(l) + " the node is: " + str(x)
+#	    	if((x == l[0]) and (l[1] in old_nodes)):
+#		    #print "setlink " + new_x + " " + l[1]
+#		    new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
+#		    print "removed link: " + str(l)
+#		    temp_link.remove(l)
+#	    	if((x == l[1]) and (l[0] in old_nodes)):
+#		    #print "setlink " + new_x + " " + l[0]
+#  		    new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
+#		    print "removed link: " + str(l)
+#		    temp_link.remove(l)
+#	    	#if((x ==  l[0]) and (l[1] in migrated_nodes)):
+#		#    temp_link.remove(l)
+#	    	#if((x ==  l[1]) and (l[0] in migrated_nodes)):
+#		#    print "removed link: " + str(l)
+#		#    temp_link.remove(l)
+#	count+=1
+#	#print "count = " + str(count)
+#	migrated_nodes.append(new_x)
+#	old_nodes.append(x)
+#	remaining_nodes.remove(x)
+#    #print "New links: " + str(new_link)
+#    #print new_nodes
+#    print_nodes(new_nodes)
+#    print_links(new_link)
+#    return new_nodes,new_link
 
 def iterative_migration_algo():
     migrated_nodes = []
     new_link = []
     new_nodes = []
     old_nodes = []
-    remaining_nodes = list_node
-    temp_link = list_link
-    temp_time = list_time
+    remaining_nodes = list_node[:]
+    temp_link = list_link[:]
+    new_time = []
     count = 1
     count_time = 1
     
     for l in temp_link:
 	l[2]=time_token([0])
 	l[3]=time_token([1])
+    new_time.append(time_token([0]))
 
     while(len(remaining_nodes)>0):
 	x = remaining_nodes[0]
@@ -187,14 +197,18 @@ def iterative_migration_algo():
 		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
 		print "Deleted link: " + str(l)
 		new_link.remove(l)		
-
+	
+	new_time.append(time_token([count_time]))
 	migrated_nodes.append(new_x)
 	old_nodes.append(x)
 	remaining_nodes.remove(x)
 	count_time+=1
+    new_time.append(time_token([count_time]))
+    for l in new_link:
+	l[3]=time_token([count_time])
     print_nodes(new_nodes)
     print_links(new_link)
-    return new_nodes, new_link		
+    return new_nodes, new_link, new_time		
 		
 
 
@@ -320,7 +334,7 @@ def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,data
     #move_migration_algo()    
 
 try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:o:", ["conffile=", "outfile="])
+        opts, args = getopt.getopt(sys.argv[1:], "c:o:a:", ["conffile=", "outfile=", "algorithm="])
 except getopt.GetoptError as err:
         # print help information and exit:
         print str(err)  # will print something like "option -a not recognized"
@@ -331,25 +345,47 @@ for opt, arg in opts:
 	conffile = arg
     if opt in ('-o' , '--outfile'):
 	outfile = arg
-if (len(sys.argv)!=5):
+    if opt in ('-a' , '--algorithm'):
+	algo = arg
+if (len(sys.argv)!=7):
     #print str(sys.argv) + " length: " + str(len(sys.argv))
     print "Wrong number of argument"
-    print "Usage: python TopoParser.py -c <configuration file> -o <output file>"
+    print "Usage: python TopoParser.py -c <configuration file> -o <output file> -a <algorithm>"
+    print "Algorithms: n = none, m = move, i = iteratice"
     exit()
 
 
 
 time_insert,data_insert,user_insert,dataisauthorized_insert,reads_insert,before_insert = parse(conffile)
 
-nodes,links =  iterative_migration_algo()
-#nodes,links =  move_migration_algo()
+## Parsubg algorithm argument
+
+if (algo == 'n'):
+    nodes = []
+    links = []
+    times =['time-0','time-1']
+if (algo == 'm'):
+    nodes,links,times =  move_migration_algo()
+if (algo == 'i'):
+    nodes,links,times =  iterative_migration_algo()
+
 node_insert=""
 link_insert=""
+before_insert=""
+time_insert=""
+nodes = list_node + nodes
+links = list_link + links
 
 for n in nodes:
     node_insert += "(declare-constant '" + n + " :sort 'node)\n"
+for l in links:
+    link_insert += "(assert (setlink0 " + l[0] + " " + l[1] + " (make-interval " + l[2] + " " + l[3] + ")) :name " + l[0] + "-linked-to-" + l[1] + "-during-"+ l[2] + "-" + l[3]  + ")\n" 
+for t in times:
+    time_insert += "(declare-constant '" + t + " :sort 'time-point :constructor t)\n"
 
-#for l in links:
-#    link_insert += "(assert (setlink0 " + l[0] + " " + l[1] + " (make-interval " + l[2] + " " + l[3] + ")) :name " + l[0] + "-linked-to-" + l[1] + "-during-"+ l[2] + "-" + l[3]  + ")\n" 
+my_iterator=0
+while(my_iterator<len(times)-1):
+     before_insert+="(before " + str(times[my_iterator]) + " " + str(times[my_iterator+1]) + ")\n" 
+     my_iterator+=1
 
-#insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert, before_insert,outfile)
+insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert, before_insert,outfile)
