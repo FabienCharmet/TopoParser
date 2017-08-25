@@ -30,9 +30,11 @@ Before =  Word('(', max=1) + Word('Before')("type") + Word(',', max=1) + Word(va
 #####################
 Link = Word('(', max=1) + Word('Link')("type") + Word(varname)("src_link") + Word(',', max=1) + Word(varname)("dst_link") + Word(',', max=1) + Word(varname)("begin_time") + Word(',', max=1) + Word(varname)("end_time") + Word(')',max=1)
 DataIsAuthorized = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Data-IsAuthorized')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
-Reads = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Reads')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
+DataAtNode = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Data-At-Node')("type") + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
+ReadsAtNode = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Reads-At-Node')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
 
-Element = Node | Link | Time | Before | Data | User | DataIsAuthorized | Reads
+Element = Node | Link | Time | Before | Data | User | DataIsAuthorized | ReadsAtNode | DataAtNode
+
 
 
 def replace_char(src,target,filename):
@@ -96,74 +98,13 @@ def time_token(time_vector):
     timeslot="time-" + str(time_vector[0])
     return timeslot
 
-#def iterative_migration_algo2():
-#    migrated_nodes = []
-#    new_link = []
-#    new_nodes = []
-#    old_nodes = []
-#    remaining_nodes = list_node
-#    temp_link = list_link
-#    temp_time = list_time
-#    count = 1
-#    count_time = 1
-#    
-#    for l in temp_link:
-#	l[2]=time_token([0])
-#	l[3]=time_token([1])
-#
-#    while(len(remaining_nodes)>0):
-#	x = remaining_nodes[0]
-#	new_x = "new_" + x
-#	new_nodes.append(new_x)
-#	#print new_x
-#	#print temp_link
-#	#print "length: " + str(len(remaining_nodes))
-#	for l in temp_link:
-#	    if((x == l[0]) and (l[1] in remaining_nodes)):
-#		#print "setlink " + new_x + " " + l[1]
-#		new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
-#		#print "removed link: " + str(l)
-#		#temp_link.remove(l)
-#	    if((x == l[1]) and (l[0] in remaining_nodes)):
-#		#print "setlink " + new_x + " " + l[0]
-#		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
-#		#print "removed link: " + str(l)
-#		#temp_link.remove(l)
-#	if(count > 1):
-#	    for l in temp_link:
-#		#print "the link is: " + str(l) + " the node is: " + str(x)
-#		#print "old nodes: " + str(old_nodes) + " the link is: " + str(l) + " the node is: " + str(x)
-#	    	if((x == l[0]) and (l[1] in old_nodes)):
-#		    #print "setlink " + new_x + " " + l[1]
-#		    new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
-#		    print "removed link: " + str(l)
-#		    temp_link.remove(l)
-#	    	if((x == l[1]) and (l[0] in old_nodes)):
-#		    #print "setlink " + new_x + " " + l[0]
-#  		    new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
-#		    print "removed link: " + str(l)
-#		    temp_link.remove(l)
-#	    	#if((x ==  l[0]) and (l[1] in migrated_nodes)):
-#		#    temp_link.remove(l)
-#	    	#if((x ==  l[1]) and (l[0] in migrated_nodes)):
-#		#    print "removed link: " + str(l)
-#		#    temp_link.remove(l)
-#	count+=1
-#	#print "count = " + str(count)
-#	migrated_nodes.append(new_x)
-#	old_nodes.append(x)
-#	remaining_nodes.remove(x)
-#    #print "New links: " + str(new_link)
-#    #print new_nodes
-#    print_nodes(new_nodes)
-#    print_links(new_link)
-#    return new_nodes,new_link
 
 def iterative_migration_algo():
     migrated_nodes = []
     new_link = []
     new_nodes = []
     old_nodes = []
+    all_link = []
     remaining_nodes = list_node[:]
     temp_link = list_link[:]
     new_time = []
@@ -183,18 +124,22 @@ def iterative_migration_algo():
 	    if((x == l[0]) and (l[1] in remaining_nodes)):
    	        print "setlink " + new_x + " " + l[1]
 		new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
+		all_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
 	    if((x == l[1]) and (l[0] in remaining_nodes)):
    	        print "setlink " + new_x + " " + l[0]
 		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
+		all_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
 	for l in new_link:
 	    if((x == l[0]) and (l[1] in migrated_nodes)):
    	        print "setlink " + new_x + " " + l[1]
 		new_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
+		all_link.append([new_x,l[1],time_token([count_time]),time_token([count_time+1])])
 		print "Deleted link: " + str(l)
 		new_link.remove(l)		
 	    if((x == l[1]) and (l[0] in migrated_nodes)):
    	        print "setlink " + new_x + " " + l[0]
 		new_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
+		all_link.append([new_x,l[0],time_token([count_time]),time_token([count_time+1])])
 		print "Deleted link: " + str(l)
 		new_link.remove(l)		
 	
@@ -207,8 +152,8 @@ def iterative_migration_algo():
     for l in new_link:
 	l[3]=time_token([count_time])
     print_nodes(new_nodes)
-    print_links(new_link)
-    return new_nodes, new_link, new_time		
+    print_links(all_link)
+    return new_nodes, all_link, new_time		
 		
 
 
@@ -219,9 +164,9 @@ def parse(filename):
     user_insert=""
     time_insert=""
     before_insert=""
-    reads_insert=""
     dataisauthorized_insert=""
-    reads_insert=""
+    readsatnode_insert=""
+    dataatnode_insert=""
 
     with open(filename) as f:
         for line in f:
@@ -267,25 +212,42 @@ def parse(filename):
 	       temp = "(assert " + temp + ")\n" 
 	       dataisauthorized_insert += temp
 
-	   if elt_type == "Reads":
+	   if elt_type == "Reads-At-Node":
 	       try:
 		   nots = s["Not"]
 	       except KeyError:
 		   nots = ""
                tbegin = s["before_time"]
 	       tend = s["after_time"]
-	       name = s["user_name"]
+	       user = s["user_name"]
 	       data = s["data_name"]
-	       temp = "'(reads " + name + " " + data + " (make-interval " + tbegin + " " +     tend + "))"
+	       node = s["node_name"]
+	       temp = "'(reads-at-node " + user + " " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
 	       if(nots=="Not"):
 	          temp = "(not " + temp + ")"
 	       temp = "(assert " + temp + ")\n" 
-	       reads_insert += temp
-    return time_insert,data_insert,user_insert,dataisauthorized_insert,reads_insert,before_insert
+	       readsatnode_insert += temp
+
+	   if elt_type == "Data-At-Node":
+	       try:
+		   nots = s["Not"]
+	       except KeyError:
+		   nots = ""
+               tbegin = s["before_time"]
+	       tend = s["after_time"]
+	       data = s["data_name"]
+	       node = s["node_name"]
+	       temp = "'(data-at-node " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
+	       if(nots=="Not"):
+	          temp = "(not " + temp + ")"
+	       temp = "(assert " + temp + ")\n" 
+	       dataatnode_insert += temp
+
+    return time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert
 
 
-def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert,before_insert,outfilename):
-    constant_type = ["node", "data", "users"]
+def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert,outfilename):
+    constant_type = ["node", "data", "user"]
     type_insert=""
     for x in constant_type:
         type_insert+="(declare-sort '" + x + ")\n"
@@ -316,9 +278,12 @@ def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,data
      	        elif(x == ";;; INSERT DATA-ISAUTHORIZED HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(dataisauthorized_insert)
-       	        elif(x == ";;; INSERT READS HERE ;;;\n"):
+       	        elif(x == ";;; INSERT READS AT NODE HERE ;;;\n"):
 		    outfile.write(x)
-    		    outfile.write(reads_insert)
+    		    outfile.write(readsatnode_insert)
+       	        elif(x == ";;; INSERT DATA AT NODE HERE ;;;\n"):
+		    outfile.write(x)
+    		    outfile.write(dataatnode_insert)
     	        elif(x == ";;; INSERT BEFORE HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(before_insert)
@@ -327,7 +292,7 @@ def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,data
     
     #subprocess.call(["cp","result.lisp","/home/fabien/snark-20180808r022/result.lisp"])
 
-    #print link_insert + node_insert + time_insert + before_insert + dataisauthorized_insert + reads_insert
+    #print link_insert + node_insert + time_insert + before_insert + dataisauthorized_insert + readsatnode_insert
 
     #print list_node + list_link
 
@@ -356,7 +321,7 @@ if (len(sys.argv)!=7):
 
 
 
-time_insert,data_insert,user_insert,dataisauthorized_insert,reads_insert,before_insert = parse(conffile)
+time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert = parse(conffile)
 
 ## Parsubg algorithm argument
 
@@ -388,4 +353,4 @@ while(my_iterator<len(times)-1):
      before_insert+="(before " + str(times[my_iterator]) + " " + str(times[my_iterator+1]) + ")\n" 
      my_iterator+=1
 
-insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,reads_insert, before_insert,outfile)
+insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert,outfile)

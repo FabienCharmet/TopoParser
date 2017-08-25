@@ -342,7 +342,6 @@
  ;;;     DECLARATIONS      ;;;
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
-;;; INSERT DATA HERE ;;;
 ;;; INSERT TYPES HERE ;;;
 
 ;;; INSERT NODES HERE ;;;
@@ -440,8 +439,8 @@
    (declare-ordering-greaterp 'reads '= )
    (declare-ordering-greaterp 'list-link 'setlink0)  ;;;; small improvement in time.
 
-   (declare-ordering-greaterp 'node-a 'node-b 'node-c)  ;;;no improvement
-   (declare-ordering-greaterp 'time-a 'time-b 'time-c 'time-d)
+   ;(declare-ordering-greaterp 'node-a 'node-b 'node-c)  ;;;no improvement
+   ;(declare-ordering-greaterp 'time-a 'time-b 'time-c 'time-d)
 
 
 
@@ -492,7 +491,7 @@
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   
-   (assert
+  (assert
     '(implied-by
       (list-link ?x.node ?y.node ?t.time-interval (list ?x.node ?y.node))
       (setlink0 ?x.node ?y.node ?t.time-interval))
@@ -532,6 +531,75 @@
  ;;;    CONFIDENTIALITY    ;;;
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+   (assert
+    '(implied-by
+      (full-confidentiality ?t.time-interval)
+      (forall ((?u.user  :conc-name some-user))
+       (and
+        (data-confidentiality ?d.data ?t.time-interval)
+	(node-confidentiality ?n.node ?t.time-interval)
+       ) 
+      )
+     )
+    :sequential :uninherited
+    :name 'full-confidentiality-if-not-reads-or-isauthorized)
+
+   (assert
+    '(implied-by
+      (not (full-confidentiality (make-interval ?t1.time-point ?t2.time-point)))
+      (and
+       (=
+        (make-interval ?t1.time-point ?t2.time-point)
+        (intersection
+         (make-interval ?r1.time-point ?r2.time-point)
+         (make-interval ?s1.time-point ?s2.time-point)))
+       (or
+        (not(data-confidentiality ?d.data ?t.time-interval)   ;;;;
+        (not(node-confidentiality ?n.node ?t.time-interval))
+      )
+      )
+     )
+     )   
+    :name 'not-full-confidentiality-if-reads-and-not-authorized
+    :sequential :uninherited
+    )
+  
+
+   (assert
+    '(implied-by
+      (node-confidentiality ?d.data ?t.time-interval)
+      (forall ((?u.user  :conc-name some-user))
+       (and
+        (or
+         (not (accesses ?n.node ?u.user ?t.time-interval))
+         (node-isauthorized ?u.user ?d.data ?t.time-interval)
+        )
+        (data-confidentiality ?d.data ?t.time-interval)
+	(data-at-node ?d.data ?n.node ?t.time-interval)
+       ) 
+      )
+     )
+    :sequential :uninherited
+    :name 'node-confidentiality-if-not-accesses-or-isauthorizied)
+
+   (assert
+    '(implied-by
+      (not (node-confidentiality ?n.node (make-interval ?t1.time-point ?t2.time-point)))
+      (and
+       (=
+        (make-interval ?t1.time-point ?t2.time-point)
+        (intersection
+         (make-interval ?r1.time-point ?r2.time-point)
+         (make-interval ?s1.time-point ?s2.time-point)))
+       (and
+        (accesses ?n.node ?u.user ?r.time-interval)   ;;;;
+        (not (node-isauthorized ?u.user ?n.node ?s.time-interval)))
+      )
+      )
+    :name 'not-node-confidentiality-if-reads-and-not-authorized
+    :sequential :uninherited
+    )
+  
     
    (assert
     '(implied-by
@@ -660,7 +728,10 @@
 
 ;;; INSERT DATA-ISAUTHORIZED HERE ;;;
 
-;;; INSERT READS HERE ;;;\
+;;; INSERT READS AT NODE HERE ;;;
+
+;;; INSERT DATA AT NODE HERE ;;;
+
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;       QUESTIONS       ;;;
@@ -675,7 +746,7 @@
 
    (find-all '(ans  ?d.data ?t.time-interval)
              '(and
-               (not (data-confidentiality ?d.data ?t.time-interval))
+               (data-confidentiality ?d.data ?t.time-interval)
                (non-empty ?t.time-interval))
              :name 'data-confidentiality-violation-conjecture
              :num-answers 1
