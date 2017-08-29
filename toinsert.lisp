@@ -300,6 +300,11 @@
 
 	computed-ans)))
 
+ (defun reload ()
+    (load "result.lisp")
+    (test-data-confidentiality-violation-charmet)
+ )
+
  (defun data-confidentiality-setup ()
 
   
@@ -406,10 +411,13 @@
    (declare-relation 'list-link 4
                      :sort '((1 node) (2 node) (3 time-interval) (4 list)))
   
- ;;; data is not breached during time-interval
+ ;;; the confidentiality of a data is not breached during time-interval
    (declare-relation 'data-confidentiality 2 :sort '((1 data) (2 time-interval))
                      :allowed-in-answer nil)  ;;; to avoid conditional answers that test data-confidentiality.
- ;;; the confidentiality of a
+
+ ;;; the confidentiality of a node is not breached during time-interval
+   (declare-relation 'node-confidentiality 2 :sort '((1 node) (2 time-interval))
+                     :allowed-in-answer nil)  ;;; to avoid conditional answers that test node-confidentiality.
 
    (declare-relation 'data-at-node 3 :sort '((1 data) (2 node) (3 time-interval)))
    ;;; <data> is stored at <node> during <time-interval>
@@ -423,8 +431,14 @@
    (declare-relation 'reads-at-node 4 :sort '((1 user) (2 data) (3 node) (4 time-interval)))
  ;;; <user> can read <data> at <node> during <time-interval>
 
-   (declare-relation 'isauthorized 3 :sort '((1 user) (2 data) (3 time-interval)))
+   (declare-relation 'data-isauthorized 3 :sort '((1 user) (2 data) (3 time-interval)))
  ;;; a user is authorized to read a data during a time interval
+
+   (declare-relation 'node-isauthorized 3 :sort '((1 user) (2 node) (3 time-interval)))
+ ;;; a user is authorized to access a node during a time interval
+
+   (declare-relation 'accesses 3 :sort '((1 user) (2 node) (3 time-interval)))
+ ;;; a user accesses a node during a time interval
 
  ;;; relation ordering strategy
 
@@ -432,7 +446,8 @@
    (declare-ordering-greaterp 'setlink 'data-at-node '= 'snark::$$time-pp) ;;
    (declare-ordering-greaterp 'data-confidentiality 'snark::$$time-pp)
    (declare-ordering-greaterp 'non-empty 'data-confidentiality 'reads)
-   (declare-ordering-greaterp 'data-confidentiality 'isauthorized)
+   (declare-ordering-greaterp 'data-confidentiality 'data-isauthorized)
+   (declare-ordering-greaterp 'node-confidentiality 'node-isauthorized)
    (declare-ordering-greaterp 'intersection 'make-interval)
    (declare-ordering-greaterp 'intersection 'max-time)
    (declare-ordering-greaterp 'intersection 'min-time)
@@ -440,6 +455,9 @@
    (declare-ordering-greaterp 'list-link 'setlink0)  ;;;; small improvement in time.
 
    ;(declare-ordering-greaterp 'node-a 'node-b 'node-c)  ;;;no improvement
+
+;;; INSERT TIME ORDERING HERE ;;;
+
    ;(declare-ordering-greaterp 'time-a 'time-b 'time-c 'time-d)
 
 
@@ -491,7 +509,7 @@
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   
-  (assert
+ '(assert
     '(implied-by
       (list-link ?x.node ?y.node ?t.time-interval (list ?x.node ?y.node))
       (setlink0 ?x.node ?y.node ?t.time-interval))
@@ -501,7 +519,7 @@
 
 
   
-   (assert
+   '(assert
     '(implied-by
       (list-link ?x.node ?z.node
        (make-interval ?t1.time-point ?t2.time-point)
@@ -531,10 +549,10 @@
  ;;;    CONFIDENTIALITY    ;;;
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-   (assert
+   '(assert
     '(implied-by
       (full-confidentiality ?t.time-interval)
-      (forall ((?u.user  :conc-name some-user))
+      (forall ((?d.data  :conc-name some-data) (?n.node  :conc-name some-node))
        (and
         (data-confidentiality ?d.data ?t.time-interval)
 	(node-confidentiality ?n.node ?t.time-interval)
@@ -544,7 +562,7 @@
     :sequential :uninherited
     :name 'full-confidentiality-if-not-reads-or-isauthorized)
 
-   (assert
+   '(assert
     '(implied-by
       (not (full-confidentiality (make-interval ?t1.time-point ?t2.time-point)))
       (and
@@ -554,8 +572,8 @@
          (make-interval ?r1.time-point ?r2.time-point)
          (make-interval ?s1.time-point ?s2.time-point)))
        (or
-        (not(data-confidentiality ?d.data ?t.time-interval)   ;;;;
-        (not(node-confidentiality ?n.node ?t.time-interval))
+        (not(data-confidentiality ?d.data (make-interval ?r1.time-point ?r2.time-point))   ;;;;
+        (not(node-confidentiality ?n.node (make-interval ?s1.time-point ?s2.time-point)))
       )
       )
      )
@@ -567,12 +585,12 @@
 
    (assert
     '(implied-by
-      (node-confidentiality ?d.data ?t.time-interval)
-      (forall ((?u.user  :conc-name some-user))
+      (node-confidentiality ?n.node ?t.time-interval)
+      (forall ((?u.user  :conc-name some-user) (?d.data  :conc-name some-data))
        (and
         (or
-         (not (accesses ?n.node ?u.user ?t.time-interval))
-         (node-isauthorized ?u.user ?d.data ?t.time-interval)
+         (not (accesses ?u.user ?n.node ?t.time-interval))
+         (node-isauthorized ?u.user ?n.node ?t.time-interval)
         )
         (data-confidentiality ?d.data ?t.time-interval)
 	(data-at-node ?d.data ?n.node ?t.time-interval)
@@ -592,8 +610,8 @@
          (make-interval ?r1.time-point ?r2.time-point)
          (make-interval ?s1.time-point ?s2.time-point)))
        (and
-        (accesses ?n.node ?u.user ?r.time-interval)   ;;;;
-        (not (node-isauthorized ?u.user ?n.node ?s.time-interval)))
+        (accesses ?u.user ?n.node (make-interval ?r1.time-point ?r2.time-point))   ;;;;
+        (not (node-isauthorized ?u.user ?n.node (make-interval ?s1.time-point ?s2.time-point))))
       )
       )
     :name 'not-node-confidentiality-if-reads-and-not-authorized
@@ -607,7 +625,7 @@
       (forall ((?u.user  :conc-name some-user))
        (or
         (not (reads ?u.user ?d.data ?t.time-interval))
-        (isauthorized ?u.user ?d.data ?t.time-interval)))  ;;;
+        (data-isauthorized ?u.user ?d.data ?t.time-interval)))  ;;;
       )
     :sequential :uninherited
     :name 'data-confidentiality-if-not-reads-or-isauthorized)
@@ -622,8 +640,8 @@
          (make-interval ?r1.time-point ?r2.time-point)
          (make-interval ?s1.time-point ?s2.time-point)))
        (and
-        (reads ?u.user ?d.data ?r.time-interval)   ;;;;
-        (not (isauthorized ?u.user ?d.data ?s.time-interval))))
+        (reads ?u.user ?d.data (make-interval ?r1.time-point ?r2.time-point))   ;;;;
+        (not (data-isauthorized ?u.user ?d.data (make-interval ?s1.time-point ?s2.time-point)))))
       )
     :name 'not-data-confidentiality-if-reads-and-not-authorized
     :sequential :uninherited
@@ -726,12 +744,59 @@
 
 ;;; INSERT SETLINK HERE ;;;
 
+;;; INSERT NODE-ISAUTHORIZED HERE ;;;
+
 ;;; INSERT DATA-ISAUTHORIZED HERE ;;;
+
+;;; INSERT ACCESSES HERE ;;;
+
+;;; INSERT READS HERE ;;;
 
 ;;; INSERT READS AT NODE HERE ;;;
 
 ;;; INSERT DATA AT NODE HERE ;;;
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;  CLOSED-WORLD ASSUMPTIONS  ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+  (assert '(implies
+       (reads ?u.user ?d.data ?t.time-interval)
+       (or (= ?u.user user-1)(= ?u.user user-2)))  ;;;
+     :sequential :uninherited
+     :name 'closed-world-assumption-for-reads)
+
+  (assert '(implies
+       (accesses ?u.user ?n.node ?t.time-interval)
+       (or (= ?u.user user-1)(= ?u.user user-2)))  ;;;
+     :sequential :uninherited
+     :name 'closed-world-assumption-for-reads)
+
+  (assert '(implies
+       (data-isauthorized ?u.user ?d.data ?t.time-interval)
+       (or (= ?u.user user-1)(= ?u.user user-2)))   ;;;
+     :sequential :uninherited
+     :name 'closed-world-assumption-for-data-isauthorized)
+
+  (assert '(implies
+       (node-isauthorized ?u.user ?n.node ?t.time-interval)
+       (or (= ?u.user user-1)(= ?u.user user-2)))   ;;;
+     :sequential :uninherited
+     :name 'closed-world-assumption-for-node-isauthorized)
+
+  (assert '(implies
+       (not (data-isauthorized ?u.user ?d.data ?t.time-interval))
+       (or (= ?u.user user-1)(= ?u.user user-2)))   ;;; (= ?u.user user-1) (= ?u.user user-2)
+     :sequential :uninherited
+    :name 'closed-world-assumption-for-not-data-isauthorized)
+
+  (assert '(implies
+       (not (node-isauthorized ?u.user ?n.node ?t.time-interval))
+       (or (= ?u.user user-1)(= ?u.user user-2)))   ;;; (= ?u.user user-1) (= ?u.user user-2)
+     :sequential :uninherited
+    :name 'closed-world-assumption-for-not-node-isauthorized)
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;       QUESTIONS       ;;;
@@ -744,13 +809,35 @@
   ;;; use  :print-derived :print for detailed trace
 
 
-   (find-all '(ans  ?d.data ?t.time-interval)
+   '(find-all '(ans ?u.user ?d.data ?t.time-interval)
              '(and
-               (data-confidentiality ?d.data ?t.time-interval)
+               (not(data-isauthorized ?u.user ?d.data ?t.time-interval))
                (non-empty ?t.time-interval))
              :name 'data-confidentiality-violation-conjecture
              :num-answers 1
              :time-limit 1
+             :print-derived :print)
+
+   '(find-all '(ans ?d.data ?t.time-interval)
+             '(and
+       (data-confidentiality ?d.data ?t.time-interval)
+               (non-empty ?t.time-interval))
+             :name 'data-confidentiality-violation-conjecture
+             :num-answers 1
+             :time-limit 10 
+             :print-derived :print)
+
+   ;;; search for a data-confidentiality breach:
+   ;;; find data for which data-confidentiality has not been maintained
+
+
+   (find-all '(ans ?n.node ?t.time-interval)
+             '(and
+       (not(node-confidentiality ?n.node ?t.time-interval))
+               (non-empty ?t.time-interval))
+             :name 'node-confidentiality-violation-conjecture
+             :num-answers 1
+             :time-limit 100 
              :print-derived :print)
 
    ;;; search for a data-confidentiality breach:

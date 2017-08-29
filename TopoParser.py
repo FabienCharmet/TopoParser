@@ -30,10 +30,13 @@ Before =  Word('(', max=1) + Word('Before')("type") + Word(',', max=1) + Word(va
 #####################
 Link = Word('(', max=1) + Word('Link')("type") + Word(varname)("src_link") + Word(',', max=1) + Word(varname)("dst_link") + Word(',', max=1) + Word(varname)("begin_time") + Word(',', max=1) + Word(varname)("end_time") + Word(')',max=1)
 DataIsAuthorized = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Data-IsAuthorized')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
+NodeIsAuthorized = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Node-IsAuthorized')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
+Accesses = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Accesses')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
 DataAtNode = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Data-At-Node')("type") + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
 ReadsAtNode = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Reads-At-Node')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("node_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
+Reads = Word('(', max=1) + Optional(Word('Not')("Not")) + Word('Reads')("type") + Word(varname)("user_name") + Word(',', max=1) + Word(varname)("data_name") + Word(',', max=1) + Word(varname)("before_time") + Word(',', max=1) + Word(varname)("after_time")  +  Word(')',max=1)
 
-Element = Node | Link | Time | Before | Data | User | DataIsAuthorized | ReadsAtNode | DataAtNode
+Element = Node | Link | Time | Before | Data | User | DataIsAuthorized | ReadsAtNode | DataAtNode | Reads | Accesses | NodeIsAuthorized
 
 
 
@@ -68,7 +71,7 @@ def move_migration_algo():
     new_nodes = []
     for l in list_link:
 	l[2]=time_token([0])
-	l[3]=time_token([1])
+	l[3]=time_token([2])
     new_link = deepcopy(list_link)
     for n in temp_nodes:
 	new_n = "new_" + n
@@ -165,8 +168,11 @@ def parse(filename):
     time_insert=""
     before_insert=""
     dataisauthorized_insert=""
+    nodeisauthorized_insert=""
     readsatnode_insert=""
     dataatnode_insert=""
+    reads_insert=""
+    accesses_insert=""
 
     with open(filename) as f:
         for line in f:
@@ -202,15 +208,30 @@ def parse(filename):
 	       tend = s["after_time"]
 	       name = s["user_name"]
 	       data = s["data_name"]
-	       temp = "'(data-isauthorized " + name + " " + data + " (make-interval " + tbegin + " " +     tend + "))"
+	       temp = "(data-isauthorized " + name + " " + data + " (make-interval " + tbegin + " " +     tend + "))"
 	       try:
 		   nots = s["Not"]
 	       except KeyError:
 		   nots = ""
 	       if(nots=="Not"):
 	          temp = "(not " + temp + ")"
-	       temp = "(assert " + temp + ")\n" 
+	       temp = "(assert '" + temp + ")\n" 
 	       dataisauthorized_insert += temp
+
+	   if elt_type == "Node-IsAuthorized":
+               tbegin = s["before_time"]
+	       tend = s["after_time"]
+	       name = s["user_name"]
+	       data = s["data_name"]
+	       temp = "(node-isauthorized " + name + " " + data + " (make-interval " + tbegin + " " +     tend + "))"
+	       try:
+		   nots = s["Not"]
+	       except KeyError:
+		   nots = ""
+	       if(nots=="Not"):
+	          temp = "(not " + temp + ")"
+	       temp = "(assert '" + temp + ")\n" 
+	       nodeisauthorized_insert += temp
 
 	   if elt_type == "Reads-At-Node":
 	       try:
@@ -222,11 +243,42 @@ def parse(filename):
 	       user = s["user_name"]
 	       data = s["data_name"]
 	       node = s["node_name"]
-	       temp = "'(reads-at-node " + user + " " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
+	       temp = "(reads-at-node " + user + " " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
 	       if(nots=="Not"):
 	          temp = "(not " + temp + ")"
-	       temp = "(assert " + temp + ")\n" 
+	       temp = "(assert '" + temp + ")\n" 
 	       readsatnode_insert += temp
+
+	   if elt_type == "Reads":
+	       try:
+		   nots = s["Not"]
+	       except KeyError:
+		   nots = ""
+               tbegin = s["before_time"]
+	       tend = s["after_time"]
+	       user = s["user_name"]
+	       data = s["data_name"]
+	       temp = "(reads " + user + " " + data + " (make-interval " + tbegin + " " +     tend + "))"
+	       if(nots=="Not"):
+	          temp = "(not " + temp + ")"
+	       temp = "(assert '" + temp + ")\n" 
+	       reads_insert += temp
+
+	   if elt_type == "Accesses":
+	       try:
+		   nots = s["Not"]
+	       except KeyError:
+		   nots = ""
+               tbegin = s["before_time"]
+	       tend = s["after_time"]
+	       user = s["user_name"]
+	       node = s["node_name"]
+	       temp = "(accesses " + user + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
+	       if(nots=="Not"):
+	          temp = "(not " + temp + ")"
+	       temp = "(assert '" + temp + ")\n" 
+	       reads_insert += temp
+
 
 	   if elt_type == "Data-At-Node":
 	       try:
@@ -237,16 +289,16 @@ def parse(filename):
 	       tend = s["after_time"]
 	       data = s["data_name"]
 	       node = s["node_name"]
-	       temp = "'(data-at-node " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
+	       temp = "(data-at-node " + data + " " + node + " (make-interval " + tbegin + " " +     tend + "))"
 	       if(nots=="Not"):
 	          temp = "(not " + temp + ")"
-	       temp = "(assert " + temp + ")\n" 
+	       temp = "(assert '" + temp + ")\n" 
 	       dataatnode_insert += temp
 
-    return time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert
+    return time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,reads_insert,nodeisauthorized_insert,accesses_insert,before_insert
 
 
-def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert,outfilename):
+def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,reads_insert,nodeisauthorized_insert,accesses_insert,before_insert,time_ordering_insert,outfilename):
     constant_type = ["node", "data", "user"]
     type_insert=""
     for x in constant_type:
@@ -275,18 +327,30 @@ def insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,data
     	        elif(x == ";;; INSERT SETLINK HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(link_insert)
+     	        elif(x == ";;; INSERT NODE-ISAUTHORIZED HERE ;;;\n"):
+		    outfile.write(x)
+    		    outfile.write(dataisauthorized_insert)
+     	        elif(x == ";;; INSERT ACCESSES HERE ;;;\n"):
+		    outfile.write(x)
+    		    outfile.write(dataisauthorized_insert)
      	        elif(x == ";;; INSERT DATA-ISAUTHORIZED HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(dataisauthorized_insert)
        	        elif(x == ";;; INSERT READS AT NODE HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(readsatnode_insert)
+       	        elif(x == ";;; INSERT READS HERE ;;;\n"):
+		    outfile.write(x)
+    		    outfile.write(reads_insert)
        	        elif(x == ";;; INSERT DATA AT NODE HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(dataatnode_insert)
     	        elif(x == ";;; INSERT BEFORE HERE ;;;\n"):
 		    outfile.write(x)
     		    outfile.write(before_insert)
+    	        elif(x == ";;; INSERT TIME ORDERING HERE ;;;\n"):
+		    outfile.write(x)
+    		    outfile.write(time_ordering_insert)
     	        else:
     		    outfile.write(x)
     
@@ -321,7 +385,7 @@ if (len(sys.argv)!=7):
 
 
 
-time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert = parse(conffile)
+time_insert,data_insert,user_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,reads_insert,nodeisauthorized_insert,accesses_insert,before_insert = parse(conffile)
 
 ## Parsubg algorithm argument
 
@@ -338,19 +402,22 @@ node_insert=""
 link_insert=""
 before_insert=""
 time_insert=""
+time_ordering_insert="(declare-ordering-greaterp "
 nodes = list_node + nodes
 links = list_link + links
 
 for n in nodes:
     node_insert += "(declare-constant '" + n + " :sort 'node)\n"
 for l in links:
-    link_insert += "(assert (setlink0 " + l[0] + " " + l[1] + " (make-interval " + l[2] + " " + l[3] + ")) :name " + l[0] + "-linked-to-" + l[1] + "-during-"+ l[2] + "-" + l[3]  + ")\n" 
+    link_insert += "(assert '(setlink0 " + l[0] + " " + l[1] + " (make-interval " + l[2] + " " + l[3] + ")) :name '" + l[0] + "-linked-to-" + l[1] + "-during-"+ l[2] + "-" + l[3]  + ")\n" 
 for t in times:
     time_insert += "(declare-constant '" + t + " :sort 'time-point :constructor t)\n"
 
 my_iterator=0
 while(my_iterator<len(times)-1):
-     before_insert+="(before " + str(times[my_iterator]) + " " + str(times[my_iterator+1]) + ")\n" 
+     before_insert+="(assert '(before " + str(times[my_iterator]) + " " + str(times[my_iterator+1]) + "))\n" 
+     time_ordering_insert+= "'" + str(times[my_iterator]) + " "
      my_iterator+=1
+time_ordering_insert+= "'" + str(times[my_iterator]) + ")"
 
-insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,before_insert,outfile)
+insert_text(node_insert,time_insert,data_insert,user_insert,link_insert,dataisauthorized_insert,readsatnode_insert,dataatnode_insert,reads_insert,nodeisauthorized_insert,accesses_insert,before_insert,time_ordering_insert,outfile)
